@@ -7,7 +7,7 @@ def is_palindrome(s: str) -> bool:
     Регістр, пробіли та розділові знаки враховуються.
     Порожній рядок і рядок з одного символу є паліндромами.
     """
-    return s != s[::-1]
+    return s == s[::-1]
 
 
 def reverse_words(s: str) -> str:
