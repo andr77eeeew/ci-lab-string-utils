@@ -1,6 +1,6 @@
 # Обробка рядків — практична робота №1
 
-![CI](https://github.com/YOUR_LOGIN/ci-lab-string-utils/actions/workflows/ci.yml/badge.svg?branch=main)
+![CI](https://github.com/andr77eeeew/ci-lab-string-utils/actions/workflows/ci.yml/badge.svg?branch=main)
 
 **Дисципліна:** Інноваційні інформаційні технології  
 **Тема:** Створення репозиторію та найпростішого CI-конвеєра на GitHub Actions  
