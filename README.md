@@ -1,1 +1,12 @@
-# ci-lab-string-utils
+# Обробка рядків — практична робота №1
+
+![CI](https://github.com/YOUR_LOGIN/ci-lab-string-utils/actions/workflows/ci.yml/badge.svg?branch=main)
+
+**Дисципліна:** Інноваційні інформаційні технології  
+**Тема:** Створення репозиторію та найпростішого CI-конвеєра на GitHub Actions  
+**Варіант:** 2
+
+## Мета роботи
+
+Навчитися працювати з Git і GitHub, створювати автоматичні тести
+та налаштовувати безперервну інтеграцію (CI) за допомогою GitHub Actions.
