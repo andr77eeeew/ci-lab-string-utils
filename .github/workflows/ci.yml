@@ -41,6 +41,71 @@ jobs:
           python --version
           python -m pytest -v
 
+  deploy:
+    needs: build-and-push-image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: read
+
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_VAR_image_name: ghcr.io/andr77eeeew/ci-lab-app:${{ github.sha }}
+
+    steps:
+      - name: Отримати код репозиторію
+        uses: actions/checkout@v6
+
+      - name: Встановити Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.*"
+
+      - name: Увійти в GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io \
+            -u "${{ github.actor }}" --password-stdin
+
+      - name: Перевірити форматування Terraform
+        working-directory: infra
+        run: terraform fmt -check
+
+      - name: terraform init
+        working-directory: infra
+        run: terraform init -input=false
+
+      - name: Перевірити конфігурацію Terraform
+        working-directory: infra
+        run: terraform validate
+
+      - name: terraform plan
+        working-directory: infra
+        run: terraform plan -input=false
+
+      - name: terraform apply
+        working-directory: infra
+        run: terraform apply -auto-approve -input=false
+
+      - name: Вивести ідентифікатори ресурсів
+        working-directory: infra
+        run: terraform output
+
+      - name: Перевірити результат розгортання (smoke-test)
+        timeout-minutes: 2
+        run: |
+          docker wait ci-lab-deploy
+          docker logs ci-lab-deploy
+          EXIT_CODE=$(docker inspect ci-lab-deploy --format='{{.State.ExitCode}}')
+          echo "Код завершення контейнера: $EXIT_CODE"
+          test "$EXIT_CODE" -eq 0
+
+      - name: terraform destroy
+        if: always()
+        working-directory: infra
+        run: terraform destroy -auto-approve -input=false
+
   build-and-push-image:
     needs: build-and-test
     if: github.event_name == 'push'
