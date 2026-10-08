@@ -1,0 +1,5 @@
+services:
+  tests:
+    image: ghcr.io/andr77eeeew/ci-lab-app:latest
+    command: ["pytest", "-v"]
+    restart: "no"

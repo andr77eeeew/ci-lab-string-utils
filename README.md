@@ -44,6 +44,7 @@ ci-lab-string-utils/
 ├── .dockerignore          # Виключення зайвих файлів із контексту збірки
 ├── .gitignore             # Виключення локальних файлів із Git
 ├── Dockerfile             # Середовище Python і команда запуску тестів
+├── docker-compose.yml     # Опис запуску тестів через Docker Compose
 ├── README.md              # Опис проєкту та інструкції запуску
 ├── requirements.txt       # Залежності проєкту
 ├── string_utils.py        # Функції обробки рядків
@@ -114,6 +115,54 @@ Dockerfile використовує базовий образ `python:3.12-slim`
 Файл `.dockerignore` виключає з контексту збірки Git-метадані,
 локальні віртуальні середовища та кеші Python і pytest.
 
+## Запуск через Docker Compose
+
+Додатковий крок 16 ПЗ 2 описує запуск тестового контейнера через Docker Compose.
+Для Windows потрібен запущений Docker Desktop із Linux-контейнерами.
+Усі команди нижче виконуйте в корені репозиторію.
+
+Створіть поруч із Dockerfile файл `docker-compose.yml` із таким вмістом:
+
+```yaml
+services:
+  tests:
+    image: ghcr.io/andr77eeeew/ci-lab-app:latest
+    command: ["pytest", "-v"]
+    restart: "no"
+```
+
+Сервіс `tests` використовує готовий образ із GHCR, запускає `pytest -v`
+і завершує роботу після тестів без автоматичного перезапуску.
+
+Перевірте доступність Compose та конфігурацію:
+
+```powershell
+docker compose version
+docker compose config
+```
+
+Завантажте актуальний образ і запустіть тести:
+
+```powershell
+docker compose pull
+docker compose up --exit-code-from tests
+$LASTEXITCODE
+```
+
+Очікуваний результат — `9 passed`, завершення контейнера з кодом `0`
+та значення `$LASTEXITCODE`, що дорівнює `0`. Перевіряйте `$LASTEXITCODE`
+одразу після завершення команди запуску.
+
+Параметр `--exit-code-from tests` повертає код завершення тестового сервісу.
+Це дає змогу відрізнити успішний запуск тестів від запуску з помилкою.
+Звичайна команда `docker compose up` також запускає сервіс і показує його журнал.
+
+Після перевірки приберіть створені контейнер і мережу Compose:
+
+```powershell
+docker compose down
+```
+
 ## Автоматизація в GitHub Actions
 
 Workflow `.github/workflows/ci.yml` запускається після `push` у `main`
@@ -144,6 +193,9 @@ Workflow `.github/workflows/ci.yml` запускається після `push` �
 - У розділі **Packages** перевірте образ `ci-lab-app` і його теги.
 - Завантажте опублікований образ командою `docker pull` і перевірте
   проходження тестів командою `docker run`.
+
+- Для перевірки Compose виконайте `docker compose up --exit-code-from tests`
+  та переконайтеся, що всі тести пройшли з кодом завершення `0`.
 
 Репозиторій: [ci-lab-string-utils](https://github.com/andr77eeeew/ci-lab-string-utils).  
 Запуски CI: [GitHub Actions](https://github.com/andr77eeeew/ci-lab-string-utils/actions).
