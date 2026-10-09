@@ -1,4 +1,4 @@
-# Обробка рядків — практичні роботи №1 і №2
+# Обробка рядків — практичні роботи №1, №2 і №3
 
 ![CI](https://github.com/andr77eeeew/ci-lab-string-utils/actions/workflows/ci.yml/badge.svg?branch=main)
 
@@ -9,7 +9,8 @@
 
 Навчальний проєкт містить модуль обробки рядків, автоматичні тести та
 конвеєр GitHub Actions. Dockerfile описує середовище для запуску тестів
-у контейнері.
+у контейнері. Terraform описує розгортання опублікованого образу, а job
+`deploy` автоматично перевіряє результат і видаляє тимчасові ресурси.
 
 ## Мета робіт
 
@@ -18,6 +19,9 @@
 - **ПЗ 2:** контейнеризувати проєкт і розширити CI кроком **Package** —
   збиранням та публікацією Docker-образу в GitHub Container Registry (GHCR)
   після успішного проходження тестів.
+- **ПЗ 3:** описати інфраструктуру як код за допомогою Terraform, пройти
+  локальний цикл `init → plan → apply → destroy` і додати етап **Deploy**
+  до конвеєра GitHub Actions.
 
 ## Функції модуля
 
@@ -40,15 +44,19 @@
 ci-lab-string-utils/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml          # Перевірка тестів, збирання та публікація образу
-├── .dockerignore          # Виключення зайвих файлів із контексту збірки
-├── .gitignore             # Виключення локальних файлів із Git
-├── Dockerfile             # Середовище Python і команда запуску тестів
-├── docker-compose.yml     # Опис запуску тестів через Docker Compose
-├── README.md              # Опис проєкту та інструкції запуску
-├── requirements.txt       # Залежності проєкту
-├── string_utils.py        # Функції обробки рядків
-└── test_string_utils.py   # Автоматичні тести
+│       └── ci.yml             # Тести, публікація образу та Deploy через Terraform
+├── infra/
+│   ├── main.tf                # Docker-провайдер, образ, контейнер і outputs
+│   ├── variables.tf           # Змінна image_name
+│   └── .terraform.lock.hcl    # Зафіксовані версії провайдерів
+├── .dockerignore              # Виключення зайвих файлів із контексту збірки
+├── .gitignore                 # Виключення локальних файлів із Git
+├── Dockerfile                 # Середовище Python і команда запуску тестів
+├── docker-compose.yaml        # Опис запуску тестів через Docker Compose
+├── README.md                  # Опис проєкту та інструкції запуску
+├── requirements.txt           # Залежності проєкту
+├── string_utils.py            # Функції обробки рядків
+└── test_string_utils.py       # Автоматичні тести
 ```
 
 ## Локальний запуск тестів
@@ -114,7 +122,7 @@ docker run --rm ci-lab-app:local
 Dockerfile використовує базовий образ `python:3.12-slim`, установлює
 залежності, копіює проєкт і задає команду `pytest -v`.
 Файл `.dockerignore` виключає з контексту збірки Git-метадані,
-локальні віртуальні середовища та кеші Python і pytest.
+локальні віртуальні середовища, кеші Python і pytest, папки `infra/` та `.idea/`.
 
 ## Додатковий крок 16 ПЗ 1: матриця версій Python
 
@@ -135,7 +143,7 @@ Dockerfile використовує базовий образ `python:3.12-slim`
 Для Windows потрібен запущений Docker Desktop із Linux-контейнерами.
 Усі команди нижче виконуйте в корені репозиторію.
 
-Створіть поруч із Dockerfile файл `docker-compose.yml` із таким вмістом:
+Файл `docker-compose.yaml` поруч із Dockerfile містить:
 
 ```yaml
 services:
@@ -177,6 +185,131 @@ $LASTEXITCODE
 docker compose down
 ```
 
+## ПЗ 3: розгортання через Terraform
+
+Terraform керує двома ресурсами: `docker_image.app` завантажує образ,
+а `docker_container.app` створює контейнер `ci-lab-deploy` і запускає
+в ньому `pytest -v`. За замовчуванням використовується образ
+`ghcr.io/andr77eeeew/ci-lab-app:latest`.
+
+Для Windows потрібні Terraform CLI та запущений Docker Desktop
+із Linux-контейнерами. Перевірте їх у PowerShell із кореня репозиторію:
+
+```powershell
+terraform -version
+docker version
+docker info --format '{{.OSType}}'
+```
+
+Остання команда повинна вивести `linux`. Перед локальним запуском Terraform
+передайте активний Docker-контекст у поточне вікно PowerShell:
+
+```powershell
+$env:DOCKER_CONTEXT = (docker context show).Trim()
+```
+
+Провайдер читає дані авторизації GHCR із `~/.docker/config.json`.
+Цей файл має бути доступний на комп'ютері, де працює Terraform.
+Для приватного пакета попередньо виконайте `docker login ghcr.io`
+з обліковими даними, які мають доступ до образу.
+
+### Локальний цикл init → plan → apply → destroy
+
+Перейдіть до папки конфігурації, відформатуйте файли та перевірте їх:
+
+```powershell
+Set-Location infra
+terraform fmt
+terraform init
+terraform validate
+terraform plan
+```
+
+`init` завантажує провайдери, `validate` перевіряє конфігурацію,
+а `plan` показує заплановані зміни без створення ресурсів.
+Для початкового розгортання очікується
+`Plan: 2 to add, 0 to change, 0 to destroy.`
+
+Застосуйте конфігурацію та перевірте результат:
+
+```powershell
+terraform apply -auto-approve
+terraform output
+docker wait ci-lab-deploy
+docker logs ci-lab-deploy
+docker inspect ci-lab-deploy --format '{{.State.Status}} {{.State.ExitCode}}'
+```
+
+Очікуваний результат — `9 passed`, стан `exited` і код завершення `0`.
+`docker wait` очікує завершення контейнера та виводить його код завершення.
+`terraform output` показує `container_id` і `image_id`.
+
+Параметр `must_run = false` дозволяє контейнеру завершитися після тестів.
+Параметр `rm = false` зберігає завершений контейнер для читання журналу
+та перевірки коду завершення. Ресурси видаляються окремою командою:
+
+```powershell
+terraform destroy -auto-approve
+docker ps -a --filter "name=ci-lab-deploy"
+```
+
+Після прибирання контейнер має бути відсутній у списку. Повторне
+`terraform apply -auto-approve` відтворює ресурси з тієї самої конфігурації;
+ідентифікатор нового контейнера може відрізнятися. Після повторної перевірки
+також виконайте `terraform destroy -auto-approve`.
+
+Для локального запуску конкретного опублікованого образу передайте
+його тег через `-var="image_name=ghcr.io/andr77eeeew/ci-lab-app:<SHA>"`,
+замінивши `<SHA>` на повний хеш відповідного коміту.
+Використовуйте однакове значення змінної для `plan`, `apply` і `destroy`.
+
+### Демонстрація помилки до створення ресурсів
+
+Перед першим `apply` тимчасово замініть у ресурсі контейнера аргумент
+`image` на `iamge` та виконайте `terraform plan`.
+Очікується повідомлення `Unsupported argument` зі згадкою `iamge`.
+Поверніть правильне написання, збережіть файл і повторіть
+`terraform validate` та `terraform plan`.
+Помилка конфігурації виявляється до створення ресурсів;
+у репозиторій потрібно комітити виправлений файл.
+
+### Файли стану та провайдерів
+
+До Git додаються `main.tf`, `variables.tf` і `.terraform.lock.hcl`.
+Файл блокування фіксує вибрані версії та контрольні суми провайдерів.
+Підтримку Windows і Linux у файлі блокування можна підготувати
+з папки `infra` командою:
+
+```powershell
+terraform providers lock -platform=windows_amd64 -platform=linux_amd64
+```
+
+Папка `.terraform/`, файл `terraform.tfstate` і його резервна копія
+виключаються з Git через `.gitignore`. Стан пов'язує ресурси конфігурації
+з їхніми реальними ідентифікаторами, тому його не потрібно редагувати
+або видаляти вручну під час керування створеними ресурсами.
+
+## Додатковий крок 18 ПЗ 3
+
+У job `deploy` налаштовано `terraform fmt -check`.
+Команда перевіряє форматування файлів `.tf` і завершується помилкою,
+якщо їх потрібно відформатувати. Виправлення виконуються локально
+командою `terraform fmt`; після цього `terraform fmt -check` має пройти.
+Порожній вивід успішної перевірки є нормальним.
+
+У `main.tf` визначено вихідні значення `container_id` та `image_id`.
+Після застосування конфігурації крок `terraform output` виводить
+їх у журнал CI для діагностики.
+
+У цій навчальній конфігурації стан зберігається локально.
+Кожний CI-запуск створює та видаляє ресурси в межах одного тимчасового
+середовища. Для спільної роботи над постійною інфраструктурою
+використовують віддалене зберігання стану, доступне команді та CI.
+Backend із підтримкою блокування допомагає запобігати конфліктним
+одночасним змінам. Докладніше — у документації
+[backend](https://developer.hashicorp.com/terraform/language/backend)
+і [блокування стану](https://developer.hashicorp.com/terraform/language/state/locking).
+
 ## Автоматизація в GitHub Actions
 
 Workflow `.github/workflows/ci.yml` запускається після `push` у `main`
@@ -184,15 +317,45 @@ Workflow `.github/workflows/ci.yml` запускається після `push` �
 
 | Завдання | Дії | Умова запуску |
 | --- | --- | --- |
-| `build-and-test` | Отримує код, налаштовує Python 3.12, установлює залежності та запускає `python -m pytest -v` | `push` у `main` або Pull Request до `main` |
-| `build-and-push-image` | Збирає Docker-образ і публікує його в GHCR | Лише подія `push`, після успішного `build-and-test` |
+| `build-and-test` | Перевіряє 9 тестів у матриці Python 3.10, 3.11 і 3.12 | `push` у `main` або Pull Request до `main` |
+| `build-and-push-image` | Збирає Docker-образ і публікує його в GHCR | `push` у `main`, після успіху всіх виконань матриці |
+| `deploy` | Перевіряє Terraform, розгортає образ, виконує smoke-test і видаляє ресурси | `push` у `main`, після успішного `build-and-push-image` |
 
-Залежність `needs: build-and-test` запобігає публікації образу, якщо тести
-не пройшли. Під час перевірки Pull Request завдання публікації пропускається.
+Повна схема конвеєра:
+
+```text
+Source → Build → Test → Package → Deploy
+
+Tests (Python 3.10) ─┐
+Tests (Python 3.11) ─┼─→ build-and-push-image → deploy
+Tests (Python 3.12) ─┘
+```
+
+Залежність `needs: build-and-test` запобігає публікації образу, якщо хоча б
+одна перевірка матриці не пройшла. `needs: build-and-push-image`
+дозволяє розгортання лише після успішної публікації.
+Під час перевірки Pull Request публікація та розгортання пропускаються.
+Три логічні job дають п'ять виконань: три перевірки Python,
+одну публікацію образу та одне розгортання.
 
 Для входу в GHCR workflow використовує автоматично наданий
 `secrets.GITHUB_TOKEN` із дозволом `packages: write`.
-Ручне створення цього секрету не потрібне.
+Ручне створення цього секрету не потрібне. Job `deploy` має дозвіл
+`packages: read` і окремо виконує `docker login`, оскільки кожен job
+працює у власному середовищі.
+
+У `deploy` змінна середовища `TF_VAR_image_name` передає Terraform
+образ `ghcr.io/andr77eeeew/ci-lab-app:${{ github.sha }}`.
+Так розгортається саме образ поточного коміту. Після перевірки форматування,
+ініціалізації та перевірки конфігурації виконуються `plan`, `apply`
+і `output`. Smoke-test очікує завершення контейнера, читає журнал
+і перевіряє код завершення `0`. Якщо код відрізняється від нуля,
+job завершується помилкою. Крок `terraform destroy` має умову `always()`
+і запускається також після помилки попереднього кроку.
+
+Це навчальне розгортання в тимчасовому Linux-середовищі GitHub Actions:
+після перевірки ресурси видаляються. Воно демонструє push-модель CI/CD,
+у якій конвеєр сам запускає Terraform.
 
 Образ публікується з двома тегами:
 
@@ -203,13 +366,19 @@ Workflow `.github/workflows/ci.yml` запускається після `push` �
 ## Перевірка результатів
 
 - На вкладці **Actions** відкрийте останній запуск після `push` у `main`
-  та перевірте успішне завершення обох завдань.
+  та перевірте успішне завершення трьох перевірок Python, публікації образу
+  і job `deploy` на фінальному коміті.
 - У розділі **Packages** перевірте образ `ci-lab-app` і його теги.
 - Завантажте опублікований образ командою `docker pull` і перевірте
   проходження тестів командою `docker run`.
-
 - Для перевірки Compose виконайте `docker compose up --exit-code-from tests`
   та переконайтеся, що всі тести пройшли з кодом завершення `0`.
+- Для ПЗ 3 збережіть результати локальних `init`, `plan`, `apply`,
+  перевірки тестів і `destroy`, а також помилку `iamge` та її виправлення.
+- У job `deploy` перевірте журнал smoke-test (`9 passed`, код `0`),
+  успішне прибирання, перевірку форматування та значення outputs.
+- Історія ПЗ 3 має містити окремі коміти конфігурації Terraform,
+  розширення workflow та оновлення README.
 
 Репозиторій: [ci-lab-string-utils](https://github.com/andr77eeeew/ci-lab-string-utils).  
 Запуски CI: [GitHub Actions](https://github.com/andr77eeeew/ci-lab-string-utils/actions).
