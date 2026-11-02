@@ -1,4 +1,4 @@
-# Обробка рядків — практичні роботи №1, №2 і №3
+# Обробка рядків — практичні роботи №1–№4
 
 ![CI](https://github.com/andr77eeeew/ci-lab-string-utils/actions/workflows/ci.yml/badge.svg?branch=main)
 
@@ -22,6 +22,9 @@
 - **ПЗ 3:** описати інфраструктуру як код за допомогою Terraform, пройти
   локальний цикл `init → plan → apply → destroy` і додати етап **Deploy**
   до конвеєра GitHub Actions.
+- **ПЗ 4:** побудувати відтворюваний конвеєр обробки відкритих даних data.gov.ua
+  засобами Python і pandas та обчислити індикатори якості повітря PM2.5
+  для районів Києва (папка [`pr4`](pr4/README.md)).
 
 ## Функції модуля
 
@@ -49,6 +52,7 @@ ci-lab-string-utils/
 │   ├── main.tf                # Docker-провайдер, образ, контейнер і outputs
 │   ├── variables.tf           # Змінна image_name
 │   └── .terraform.lock.hcl    # Зафіксовані версії провайдерів
+├── pr4/                       # ПЗ 4: дані, ноутбуки, графіки та звіт README.md
 ├── .dockerignore              # Виключення зайвих файлів із контексту збірки
 ├── .gitignore                 # Виключення локальних файлів із Git
 ├── Dockerfile                 # Середовище Python і команда запуску тестів
@@ -122,7 +126,7 @@ docker run --rm ci-lab-app:local
 Dockerfile використовує базовий образ `python:3.12-slim`, установлює
 залежності, копіює проєкт і задає команду `pytest -v`.
 Файл `.dockerignore` виключає з контексту збірки Git-метадані,
-локальні віртуальні середовища, кеші Python і pytest, папки `infra/` та `.idea/`.
+локальні віртуальні середовища, кеші Python і pytest, папки `infra/`, `pr4/` та `.idea/`.
 
 ## Додатковий крок 16 ПЗ 1: матриця версій Python
 
@@ -309,6 +313,15 @@ Backend із підтримкою блокування допомагає зап
 одночасним змінам. Докладніше — у документації
 [backend](https://developer.hashicorp.com/terraform/language/backend)
 і [блокування стану](https://developer.hashicorp.com/terraform/language/state/locking).
+
+## ПЗ 4: відкриті міські дані та індикатори сталості
+
+Папка [`pr4`](pr4/README.md) містить окремий конвеєр обробки даних про якість повітря
+(варіант 2 — райони Києва, 2023 рік): скрипт завантаження даних з data.gov.ua,
+ноутбук `notebooks/pr4_kyiv_pm25.ipynb`, очищені дані й індикатори в `data/processed/`,
+графіки в `reports/figures/` і звіт [`pr4/README.md`](pr4/README.md).
+Вихідні файли `pr4/data/raw/` не зберігаються в Git, а папка `pr4/` виключена
+з контексту Docker-збірки, тому CI-конвеєр ПЗ 1–3 працює без змін.
 
 ## Автоматизація в GitHub Actions
 
