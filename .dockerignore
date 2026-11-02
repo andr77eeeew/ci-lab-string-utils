@@ -7,4 +7,5 @@ venv/
 .pytest_cache/
 README.md
 infra/
-.idea/pr4/
+pr4/
+.idea/
