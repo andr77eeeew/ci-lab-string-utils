@@ -26,6 +26,14 @@ jobs:
       - name: Отримати код
         uses: actions/checkout@v6
 
+      - name: "Eco CI: початок вимірювання"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false              # нічого не надсилати на сервери Green Coding
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458   # світ, Ember 2025
+
       - name: Налаштувати Python
         uses: actions/setup-python@v5
         with:
@@ -40,6 +48,19 @@ jobs:
         run: |
           python --version
           python -m pytest -v
+
+      - name: "Eco CI: вимір завдання"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: "build-and-test (Python ${{ matrix.python-version }})"
+
+      - name: "Eco CI: підсумок"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
 
   deploy:
     needs: build-and-push-image
@@ -57,6 +78,14 @@ jobs:
     steps:
       - name: Отримати код репозиторію
         uses: actions/checkout@v6
+
+      - name: "Eco CI: початок вимірювання"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false              # нічого не надсилати на сервери Green Coding
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458   # світ, Ember 2025
 
       - name: Встановити Terraform
         uses: hashicorp/setup-terraform@v3
@@ -106,6 +135,21 @@ jobs:
         working-directory: infra
         run: terraform destroy -auto-approve -input=false
 
+      - name: "Eco CI: вимір завдання"
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: deploy
+
+      - name: "Eco CI: підсумок"
+        if: always()
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
+
   build-and-push-image:
     needs: build-and-test
     if: github.event_name == 'push'
@@ -118,6 +162,14 @@ jobs:
     steps:
       - name: Отримати код репозиторію
         uses: actions/checkout@v6
+
+      - name: "Eco CI: початок вимірювання"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: start-measurement
+          send-data: false              # нічого не надсилати на сервери Green Coding
+          co2-calculation-method: constant
+          co2-grid-intensity-constant: 458   # світ, Ember 2025
 
       - name: Увійти в GitHub Container Registry
         run: |
@@ -134,3 +186,16 @@ jobs:
           IMAGE=ghcr.io/andr77eeeew/ci-lab-app
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
+
+      - name: "Eco CI: вимір завдання"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: get-measurement
+          label: build-and-push-image
+
+      - name: "Eco CI: підсумок"
+        uses: green-coding-solutions/eco-ci-energy-estimation@v5.3.0
+        with:
+          task: display-results
+          send-data: false
+          display-badge: false
