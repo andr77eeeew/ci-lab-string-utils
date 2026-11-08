@@ -108,7 +108,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT $__timeGroupAlias(ts, $__interval),\r\n       station,\r\n       avg(lag_ms) AS lag_ms\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nGROUP BY 1, 2\r\nORDER BY 1",
           "refId": "A",
@@ -226,7 +226,7 @@
             "uid": "pg-pr5"
           },
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT $__timeGroupAlias(ts, $__interval),\r\n       station,\r\n       avg(t_sup) AS \"T_под\",\r\n       avg(t_ret) AS \"T_зв\"\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nGROUP BY 1, 2\r\nORDER BY 1",
           "refId": "A",
@@ -270,16 +270,12 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": 0
+                "color": "red",
+                "value": null
               },
               {
                 "color": "#EAB839",
-                "value": ""
-              },
-              {
-                "color": "red",
-                "value": ""
+                "value": 80
               },
               {
                 "color": "green",
@@ -327,7 +323,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT max(ts) AS \"time\",\r\n       station,\r\n       100.0 * count(*) * 5\r\n         / ($__unixEpochTo() - $__unixEpochFrom())\r\n         AS completeness\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nGROUP BY station\r\nORDER BY 1",
           "refId": "A",
@@ -440,7 +436,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT $__timeGroupAlias(ts, $__interval),\r\n       station,\r\n       avg(g) AS \"G\"\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nGROUP BY 1, 2\r\nORDER BY 1",
           "refId": "A",
@@ -555,7 +551,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT ts AS \"time\", station, cause\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nORDER BY 1",
           "refId": "A",
@@ -578,7 +574,7 @@
           }
         }
       ],
-      "title": "New panel",
+      "title": "Тривоги і причина",
       "type": "state-timeline"
     },
     {
@@ -665,7 +661,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "(SELECT DISTINCT ON (station)\r\n        $__timeFrom()::timestamptz AS \"time\",\r\n        station, online\r\n FROM station_status\r\n WHERE ts < $__timeFrom()\r\n ORDER BY station, ts DESC)\r\nUNION ALL\r\nSELECT ts, station, online\r\nFROM station_status\r\nWHERE $__timeFilter(ts)\r\nORDER BY 1",
           "refId": "A",
@@ -753,7 +749,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT ts AS \"time\", station, q_ema\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nORDER BY 1",
           "refId": "A",
@@ -871,7 +867,7 @@
         {
           "dataset": "city",
           "editorMode": "code",
-          "format": "table",
+          "format": "time_series",
           "rawQuery": true,
           "rawSql": "SELECT $__timeGroupAlias(ts, $__interval),\r\n       station,\r\n       avg(q)     AS \"Q\",\r\n       avg(q_ema) AS \"Q_ema\"\r\nFROM heat\r\nWHERE $__timeFilter(ts)\r\nGROUP BY 1, 2\r\nORDER BY 1",
           "refId": "A",
