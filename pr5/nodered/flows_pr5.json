@@ -1,0 +1,363 @@
+[
+  {
+    "id": "pr5tab",
+    "type": "tab",
+    "label": "ПР5 — конвеєр PM2.5",
+    "disabled": false,
+    "info": "MQTT → обробка → PostgreSQL"
+  },
+  {
+    "id": "pr5broker",
+    "type": "mqtt-broker",
+    "name": "Mosquitto",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "nodered-pr5",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": false,
+    "autoUnsubscribe": false,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "pr5pg",
+    "type": "postgreSQLConfig",
+    "name": "PostgreSQL",
+    "host": "PGHOST",
+    "hostFieldType": "env",
+    "port": "PGPORT",
+    "portFieldType": "env",
+    "database": "PGDATABASE",
+    "databaseFieldType": "env",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "nodered-pr5",
+    "applicationNameType": "str",
+    "max": "10",
+    "maxFieldType": "num",
+    "idle": "1000",
+    "idleFieldType": "num",
+    "connectionTimeout": "10000",
+    "connectionTimeoutFieldType": "num",
+    "user": "",
+    "userFieldType": "env",
+    "userEnv": "PGUSER",
+    "password": "",
+    "passwordFieldType": "env",
+    "passwordEnv": "PGPASSWORD"
+  },
+  {
+    "id": "c1",
+    "type": "comment",
+    "z": "pr5tab",
+    "x": 170,
+    "y": 40,
+    "name": "① Прийом телеметрії станцій",
+    "info": "",
+    "wires": []
+  },
+  {
+    "id": "in_tel",
+    "type": "mqtt in",
+    "z": "pr5tab",
+    "x": 140,
+    "y": 120,
+    "name": "Телеметрія станцій",
+    "topic": "kharkiv/air/+/telemetry",
+    "qos": "1",
+    "datatype": "json",
+    "broker": "pr5broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "f_val",
+        "dbg_raw"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_raw",
+    "type": "debug",
+    "z": "pr5tab",
+    "x": 330,
+    "y": 200,
+    "name": "Сирі повідомлення",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "counter",
+    "wires": []
+  },
+  {
+    "id": "c2",
+    "type": "comment",
+    "z": "pr5tab",
+    "x": 700,
+    "y": 40,
+    "name": "② Перевірка → ③ AQI, згладжування, тривога → ④ запис у PostgreSQL",
+    "info": "",
+    "wires": []
+  },
+  {
+    "id": "f_val",
+    "type": "function",
+    "z": "pr5tab",
+    "x": 370,
+    "y": 120,
+    "name": "Перевірка даних",
+    "func": "// Тема kharkiv/air/<id>/telemetry → id станції\nconst station = msg.topic.split(\"/\")[2];\nconst d = msg.payload;     // mqtt in уже розібрав JSON\n// Формула (5): значення — число в допустимому діапазоні\nconst ok = (v, lo, hi) =>\n    typeof v === \"number\" && v >= lo && v <= hi;\nconst errors = [];\nif (!ok(d.pm25, 0, 1000)) errors.push(\"pm25\");\nif (!ok(d.t, -40, 60)) errors.push(\"t\");\nif (!ok(d.rh, 0, 100)) errors.push(\"rh\");\nif (!Number.isInteger(d.ts)) errors.push(\"ts\");\n\nif (errors.length > 0) {\n    const n = (context.get(\"rejected\") || 0) + 1;\n    context.set(\"rejected\", n);\n    node.status({ fill: \"red\", shape: \"dot\",\n                  text: `відхилено: ${n}` });\n    msg.payload = { station, errors, raw: d };\n    return [null, msg];    // вихід 2 — відхилені\n}\nmsg.station = station;\nmsg.ts = d.ts;\nmsg.payload = { pm25: d.pm25, t: d.t, rh: d.rh };\nreturn [msg, null];        // вихід 1 — коректні",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "f_proc"
+      ],
+      [
+        "dbg_bad"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_bad",
+    "type": "debug",
+    "z": "pr5tab",
+    "x": 580,
+    "y": 200,
+    "name": "Відхилені",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "counter",
+    "wires": []
+  },
+  {
+    "id": "f_proc",
+    "type": "function",
+    "z": "pr5tab",
+    "x": 630,
+    "y": 120,
+    "name": "AQI, згладжування, тривога",
+    "func": "// Межі шкали AQI для PM2.5 (US EPA, з 06.05.2024):\n// [C_lo, C_hi, I_lo, I_hi]\nconst BP = [\n    [0.0, 9.0, 0, 50], [9.1, 35.4, 51, 100],\n    [35.5, 55.4, 101, 150], [55.5, 125.4, 151, 200],\n    [125.5, 225.4, 201, 300], [225.5, 325.4, 301, 500],\n];\nfunction aqi(c) {\n    c = Math.floor(c * 10) / 10;   // формула (6)\n    for (const [cl, ch, il, ih] of BP) {\n        if (c <= ch) {             // формула (7)\n            return Math.round(\n                (ih - il) / (ch - cl) * (c - cl) + il);\n        }\n    }\n    return 500;                    // поза шкалою\n}\n\nconst ALPHA = 0.2;   // коефіцієнт згладжування\nconst ON = 35.5;     // поріг увімкнення тривоги\nconst OFF = 25.0;    // поріг вимкнення тривоги\n\n// Стан кожної станції зберігаємо в контексті вузла\nconst key = \"st_\" + msg.station;\nconst st = context.get(key) || { ema: null, alarm: 0 };\nconst x = msg.payload.pm25;\n// Формула (8): експоненційне згладжування\nst.ema = st.ema === null ? x\n       : ALPHA * x + (1 - ALPHA) * st.ema;\n// Формула (9): тривога з гістерезисом\nconst before = st.alarm;\nif (st.alarm === 0 && st.ema >= ON) st.alarm = 1;\nif (st.alarm === 1 && st.ema <= OFF) st.alarm = 0;\ncontext.set(key, st);\n\nmsg.payload.aqi = aqi(x);\nmsg.payload.pm25_ema = Math.round(st.ema * 10) / 10;\nmsg.payload.alarm = st.alarm;\n\nlet alarmMsg = null;                // лише при зміні стану\nif (st.alarm !== before) {\n    alarmMsg = {\n        topic: `kharkiv/air/${msg.station}/alarm`,\n        payload: JSON.stringify({\n            ts: msg.ts,\n            alarm: st.alarm,\n            pm25_ema: msg.payload.pm25_ema,\n        }),\n    };\n}\nreturn [msg, alarmMsg];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "f_line"
+      ],
+      [
+        "out_alarm",
+        "dbg_alarm"
+      ]
+    ]
+  },
+  {
+    "id": "out_alarm",
+    "type": "mqtt out",
+    "z": "pr5tab",
+    "x": 890,
+    "y": 200,
+    "name": "Публікація тривог",
+    "topic": "",
+    "qos": "1",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "pr5broker",
+    "wires": []
+  },
+  {
+    "id": "dbg_alarm",
+    "type": "debug",
+    "z": "pr5tab",
+    "x": 870,
+    "y": 260,
+    "name": "Тривоги",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "counter",
+    "wires": []
+  },
+  {
+    "id": "f_line",
+    "type": "function",
+    "z": "pr5tab",
+    "x": 880,
+    "y": 120,
+    "name": "Параметри запиту",
+    "func": "// Параметри запиту INSERT у вузлі «PostgreSQL: виміри»\n// (у запиті вони позначені $1, $2, … $9)\nconst p = msg.payload;\nmsg.params = [\n    msg.ts,                 // $1 — час виміру, мс від 1970 р.\n    msg.station,            // $2 — станція\n    p.pm25, p.pm25_ema,     // $3, $4\n    p.t, p.rh,              // $5, $6\n    p.aqi, p.alarm,         // $7, $8\n    Date.now() - msg.ts,    // $9 — затримка, формула (10)\n];\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "pg_air"
+      ]
+    ]
+  },
+  {
+    "id": "c3",
+    "type": "comment",
+    "z": "pr5tab",
+    "x": 190,
+    "y": 340,
+    "name": "Стан станцій (online/offline, LWT)",
+    "info": "",
+    "wires": []
+  },
+  {
+    "id": "in_st",
+    "type": "mqtt in",
+    "z": "pr5tab",
+    "x": 140,
+    "y": 400,
+    "name": "Стан станцій",
+    "topic": "kharkiv/air/+/status",
+    "qos": "1",
+    "datatype": "utf8",
+    "broker": "pr5broker",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "wires": [
+      [
+        "f_st"
+      ]
+    ]
+  },
+  {
+    "id": "f_st",
+    "type": "function",
+    "z": "pr5tab",
+    "x": 380,
+    "y": 400,
+    "name": "Стан → параметри",
+    "func": "// Тема kharkiv/air/<id>/status, вміст online|offline\nconst station = msg.topic.split(\"/\")[2];\nconst online = msg.payload === \"online\" ? 1 : 0;\nmsg.params = [station, online];   // $1, $2 у запиті\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "wires": [
+      [
+        "pg_st"
+      ]
+    ]
+  },
+  {
+    "id": "pg_air",
+    "type": "postgresql",
+    "z": "pr5tab",
+    "x": 1110,
+    "y": 120,
+    "name": "PostgreSQL: виміри",
+    "query": "INSERT INTO air (ts, station, pm25, pm25_ema,\n                 t, rh, aqi, alarm, lag_ms)\nVALUES (to_timestamp($1 / 1000.0), $2, $3, $4,\n        $5, $6, $7, $8, $9)\nON CONFLICT (station, ts) DO NOTHING;",
+    "postgreSQLConfig": "pr5pg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "pg_st",
+    "type": "postgresql",
+    "z": "pr5tab",
+    "x": 640,
+    "y": 400,
+    "name": "PostgreSQL: стан",
+    "query": "INSERT INTO station_status (station, online)\nVALUES ($1, $2);",
+    "postgreSQLConfig": "pr5pg",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "catch_pg",
+    "type": "catch",
+    "z": "pr5tab",
+    "x": 1110,
+    "y": 260,
+    "name": "Помилки бази даних",
+    "scope": [
+      "pg_air",
+      "pg_st"
+    ],
+    "uncaught": false,
+    "wires": [
+      [
+        "dbg_pg"
+      ]
+    ]
+  },
+  {
+    "id": "dbg_pg",
+    "type": "debug",
+    "z": "pr5tab",
+    "x": 1360,
+    "y": 260,
+    "name": "Помилки запису",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "error",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "counter",
+    "wires": []
+  }
+]
