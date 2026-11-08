@@ -1,0 +1,3 @@
+source,label,n,E_R_J,E_R_ci95,t_R_s,P_W,O_mg,M_mg,SCI_mg
+local · CodeCarbon,baseline,5,89.539,1.425,1.803,49.66,6.2297,3.6118,9.8415
+local · CodeCarbon,optimized,5,2.122,0.059,0.0432,49.08,0.1476,0.0866,0.2342
